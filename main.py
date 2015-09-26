@@ -5,8 +5,7 @@ import time
 import math
 class Graphics(pyglet.window.Window):
 	def __init__(self):
-		super(self.__class__, self).__init__()
-
+		super(self.__class__, self).__init__(width=800,resizable=True)
 		self.label = pyglet.text.Label('Speed Chart',
 		                          font_name='Times New Roman',
 		                          font_size=24,
@@ -75,7 +74,8 @@ road.C_road_rolling 	=	12.8	# rolling resistence constant
 road.C_road_friction	=	0.7 	# braking resistence (dry asphalt)
 road.g 					= 	9.8	 	# gravity
 road.path 				= 	[4,4,4,4.5,5,5.5,6,6.7,6.8,6.9,7,7.5,8,8,8,8,8,8,8,8,8,8,8,8,8,8,7.5,7,6,5,4,3,2,
-							1.5,1,1,1,1,2,3,3,2,2,2,3,3,2,2,2.5,2.5,2.6,2.7,2.8,3,3.5,4,4.5,5,4.5,4.5,4.5]
+							1.5,1,1,1,1,2,3,3,2,2,2,3,3,2,2,2.5,2.5,2.6,2.7,2.8,3,3.5,4,4.5,5,4.5,4.5,4.5,4]
+road.path.extend([4] * 20)					
 road.path_block_length	=	10
 class Automobile(object):
 	pass;
@@ -85,16 +85,16 @@ automobile.gears=[0,2.66,1.78,1.30,1.0,.74,.50] 	#Corvette C5 hardtop
 automobile.differential_ratio = 3.42
 automobile.transmission_efficiency =.7
 automobile.wheel_radius = 0.34 							# meters
-automobile.mass	=	1500.0 								#kg
-automobile.min_rpm = 	1000
-automobile.max_rpm =	6000
+automobile.mass	=	1500.0 								# kg
+automobile.min_rpm = 	1000.0
+automobile.max_rpm =	6000.0
 automobile.horsepower	=	280.0
 
-automobile.v 			= 	120 * 1000 / 3600.0 			# speed 20 km/h
+automobile.v 			= 	20 * 1000 / 3600.0 			# speed 20 km/h
 automobile.x 			=	0
 automobile.rpm			=	0.0;
 automobile.active_gear	=	1;
-automobile.gas			=	0.0
+automobile.gas			=	50.0
 automobile.brake 		=	0.0
 
 class Server(object):
@@ -106,10 +106,10 @@ class Server(object):
 	def automatic_transmission(self,throttle):
 		auto=self.auto
 		#let rpm go higher with higher throttle
-		if ( auto.rpm/auto.max_rpm>max(min(throttle,5250/auto.max_rpm),.5)):
+		if ( auto.rpm/auto.max_rpm>max(min(throttle,5250/auto.max_rpm),.6)):
 		# if ( rpm/max_rpm>.7):
 			auto.active_gear+=1;
-		elif (auto.rpm/auto.max_rpm  < .3):
+		elif (auto.rpm/auto.max_rpm  < 0.25 + auto.min_rpm/auto.max_rpm):
 			auto.active_gear-=1;
 		if (auto.active_gear>=len(auto.gears)): auto.active_gear=len(auto.gears)-1;
 		if (auto.active_gear<1): auto.active_gear=1;
@@ -135,7 +135,6 @@ class Server(object):
 		#torque calculation
 	   	max_torque 	= 	7119.0 * auto.horsepower  / auto.rpm; 
 		engine_torque 	= 	throttle  * max_torque
-		## brake_torque	=	brake/100.0 * C_road_friction  * g
 		drive_torque 	= 	engine_torque * auto.gears[auto.active_gear] * auto.differential_ratio * auto.transmission_efficiency
 
 		#slope calculation
@@ -162,7 +161,6 @@ class Server(object):
 
 
 		#automatic transmission
-		self.automatic_transmission(throttle)
 
 		if (auto.v<.005): return False; ##stopped
 		self.data.append((int(auto.x),int(auto.v)));
@@ -170,6 +168,9 @@ class Server(object):
 		# time.sleep(.001)
 		print tick,")t=",tick/self.tick_per_second,"V=",format(auto.v/1000.0*3600,".1f")\
 			,"Gear:",auto.active_gear,"RPM:",format(auto.rpm,".0f"),"X=",format(auto.x,".1f");
+		
+		self.automatic_transmission(throttle)
+		
 		return True;
 	def run(self):
 		for tick_index in xrange(1,self.tick_per_second*self.time_length):
@@ -177,12 +178,13 @@ class Server(object):
 		g= Graphics();
 		g.chart((x*1,y*2+100) for (x,y) in self.data);
 		path=[(x * self.road.path_block_length,y*10) for (x,y) in list(enumerate(self.road.path))]
-		g.line(path,(127,127,127));
+		g.line(path,(127,127,0));
 		g.show()
 
 server = Server(road,automobile);
-server.tick_per_second 	= 	100
-server.time_length 		=	100 		# seconds
+print "Track length:",road.path_block_length* len(road.path)
+server.tick_per_second 	= 	5
+server.time_length 		=	30 		# seconds
 server.data= [];
 server.run();
 print automobile.v*3600/1000
