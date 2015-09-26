@@ -4,6 +4,8 @@ import sys
 import time
 import math
 class Graphics(pyglet.window.Window):
+	def exit(self):
+		pyglet.app.exit();
 	def __init__(self):
 		super(self.__class__, self).__init__(width=800,resizable=True)
 		self.label = pyglet.text.Label('Speed Chart',
@@ -11,45 +13,33 @@ class Graphics(pyglet.window.Window):
 		                          font_size=24,
 		                          x=self.width//20, y=self.height-20,
 		                          anchor_x='left', anchor_y='top')
+		self.fps_display = pyglet.clock.ClockDisplay()
+		self.vertices= pyglet.graphics.vertex_list(1,"v2f")
+		self.batch = pyglet.graphics.Batch()
 
-	_points=[]
-	_lines=[]
 	def line(self,points,color=(255,255,255)):
-		self._lines.append({"color":color,"points":[float(all) for point in points for all in point]})
-		pass;
+		
+		self.batch.add(len(points),pyglet.gl.GL_LINE_STRIP,None,
+			("v2f",[float(all) for point in points for all in point])
+			,("c3B",color*len(points))
+			)
 
-	def chart(self,points):
-		self._points.extend([float(x) for item in points for x in item]);
 
-	def point(self,x,y):
-		self._points.extend([float(x),float(y)]);
+	def point(self,x,y,color=(255,255,255)):
+		self.batch.add(1,pyglet.gl.GL_POINTS,None,
+			("v2f",(float(x),float(y)))
+			,("c3B",color)
+			)
 
 	def on_draw(self):
 		self.clear()
 		self.label.draw()
-		if (self._points):
-			vertices= pyglet.graphics.vertex_list(len(self._points)/2,
-			    ('v2f', self._points),
-			    # ('c3B', (0, 0, 255, 0, 255, 0))
-			)
-			vertices.draw(pyglet.gl.GL_POINTS)
-		if (self._lines):
-			for line in self._lines:
-				points=line["points"];
-				color=line["color"];
-				if (type(points[0])==int):
-					t="i"
-				elif (type(points[0])==float):
-					t="f";
-				else:
-					raise TypeError("invalid type sent to line")
-
-
-				pyglet.gl.glColor3f(*[x/255.0 for x in color]);
-				vertices= pyglet.graphics.vertex_list(len(points)/2,('v2f', points))
-				vertices.draw(pyglet.gl.GL_LINE_STRIP)
+		self.fps_display.draw()
+		self.batch.draw();
+		return
 	
-	def show(self):
+	def run(self,callback,tick_per_second=60):
+		pyglet.clock.schedule_interval(callback, 1.0/tick_per_second)
 		pyglet.app.run()
 
 
@@ -103,6 +93,9 @@ class Server(object):
 	def __init__(self,road, auto):
 		self.auto=auto;
 		self.road=road;
+		self.time=0
+		self.ticks=0
+
 	def automatic_transmission(self,throttle):
 		auto=self.auto
 		#let rpm go higher with higher throttle
@@ -113,8 +106,10 @@ class Server(object):
 			auto.active_gear-=1;
 		if (auto.active_gear>=len(auto.gears)): auto.active_gear=len(auto.gears)-1;
 		if (auto.active_gear<1): auto.active_gear=1;
-
-	def tick(self,tick):
+	def tick(self,dt):
+		self.time+=dt;
+		self.ticks+=1
+		
 		auto=self.auto
 		road=self.road
 		#validation
@@ -140,7 +135,7 @@ class Server(object):
 		#slope calculation
 		position 	=	(int)(math.floor(auto.x / road.path_block_length))
 		if (position>=len(road.path)-1): 
-			return False;
+			return self.end();
 		theta		= 	math.atan(road.path[position+1] - road.path[position])
 
 		#force calculation	
@@ -162,29 +157,40 @@ class Server(object):
 
 		#automatic transmission
 
-		if (auto.v<.005): return False; ##stopped
+		if (auto.v<.005): return self.end(); ##stopped
 		self.data.append((int(auto.x),int(auto.v)));
-		sys.stdout.flush()
-		# time.sleep(.001)
-		print tick,")t=",tick/self.tick_per_second,"V=",format(auto.v/1000.0*3600,".1f")\
-			,"Gear:",auto.active_gear,"RPM:",format(auto.rpm,".0f"),"X=",format(auto.x,".1f");
+
+		# print Server.ticks,")t=",format(Server.time,".1f"),"V=",format(auto.v/1000.0*3600,".1f")\
+			# ,"Gear:",auto.active_gear,"RPM:",format(auto.rpm,".0f"),"X=",format(auto.x,".1f");
+		# sys.stdout.flush()
 		
+		self.graphics.point(auto.x,1+road.path[position]*10,(255,0,0));
+		self.graphics.point(auto.x,100+auto.v,(255,255,0))
 		self.automatic_transmission(throttle)
 		
 		return True;
+	def end(self):
+		self.graphics.exit()
 	def run(self):
-		for tick_index in xrange(1,self.tick_per_second*self.time_length):
-			if (self.tick(tick_index) is False): break;
-		g= Graphics();
-		g.chart((x*1,y*2+100) for (x,y) in self.data);
+		self.graphics= Graphics();
 		path=[(x * self.road.path_block_length,y*10) for (x,y) in list(enumerate(self.road.path))]
-		g.line(path,(127,127,0));
-		g.show()
+		self.graphics.line(path,(0,255,0))
+		self.graphics.run(self.tick,60);
+
+		
+		# for tick_index in xrange(1,self.tick_per_second*self.time_length):
+		# 	if (self.tick(tick_index) is False): break;
+		# g.chart((x*1,y*2+100) for (x,y) in self.data);
+		# path=[(x * self.road.path_block_length,y*10) for (x,y) in list(enumerate(self.road.path))]
+		# g.line(path,(127,127,0));
+		# g.show()
 
 server = Server(road,automobile);
 print "Track length:",road.path_block_length* len(road.path)
-server.tick_per_second 	= 	5
+server.tick_per_second 	= 	10 		# how many ticks should constitute one second of simulation time
 server.time_length 		=	30 		# seconds
 server.data= [];
 server.run();
-print automobile.v*3600/1000
+print server.ticks;
+print server.time;
+print automobile.v*3600/1000		
