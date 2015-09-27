@@ -49,7 +49,9 @@ class Graphics(pyglet.window.Window):
 			return;
 		# self.point(self.server.auto.x,100+1+self.server.road.path[self.server.road.block_index]*10,(255,0,0));
 		self.temporary()
-		y=self.server.road.path[self.server.road.block_index]
+		y=self.server.road.path[self.server.road.block_index+1]-self.server.road.path[self.server.road.block_index]
+		x=(self.server.auto.x - self.server.road.path_block_length * self.server.road.block_index)  / self.server.road.path_block_length
+		y=self.server.road.path[self.server.road.block_index] + y*x
 		self.circle(self.server.auto.x,100+y*10,color=(255,0,0));
 
 		self.permanent()
@@ -168,7 +170,7 @@ automobile 	= 	CruiseControlAutomobile(
 	)
 
 
-class Server(object):
+class Simulator(object):
 	road=Road
 	auto=Automobile
 	def __init__(self,road, auto,tick_per_second,simulation_speed= 	1.0	,max_score 	=	1000.0):
@@ -334,7 +336,7 @@ class Server(object):
 
 # automobile.set_speed=automobile.v=120.0*1000/3600
 
-server 					= 	Server(road,automobile
+server 					= 	Simulator(road,automobile
 	,tick_per_second 	= 	10 		# how many ticks should constitute one second of simulation time
 	,simulation_speed	= 	2.0		# speed / tick_per_second gives simulation step time
 	,max_score 		=	1000.0 		# maximum possible score in this map
