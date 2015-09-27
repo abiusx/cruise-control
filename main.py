@@ -17,13 +17,28 @@ class Graphics(pyglet.window.Window):
 		self.server=server;
 		self.fps_display = pyglet.clock.ClockDisplay()
 		self.vertices= pyglet.graphics.vertex_list(1,"v2f")
-		self.batch = pyglet.graphics.Batch()
+		self.perma_batch = pyglet.graphics.Batch()
+		self.temp_batch = pyglet.graphics.Batch()
+		self.batch=self.temp_batch;
 		self.labels=OrderedDict()
 		self.pause=False
 		self.time=0;
 	def line(self,points,color=(255,255,255)):
-		
 		self.batch.add(len(points),pyglet.gl.GL_LINE_STRIP,None,
+			("v2f",[float(all) for point in points for all in point])
+			,("c3B",color*len(points))
+			)
+	def permanent(self):
+		self.batch=self.perma_batch;
+	def temporary(self):
+		self.batch=self.temp_batch;
+	def circle(self,x,y,radius=5,color=(255,255,255,255)):
+		points=[];
+		for i in [math.pi/6.0 * t for t in range(0,12)]:
+			points.append((math.cos(i) * radius	+x, math.sin(i) * radius+y))
+ 		return self.polygon(points,color)
+ 	def polygon(self,points,color=(255,255,255)):
+ 		self.batch.add(len(points),pyglet.gl.GL_POLYGON,None,
 			("v2f",[float(all) for point in points for all in point])
 			,("c3B",color*len(points))
 			)
@@ -31,7 +46,12 @@ class Graphics(pyglet.window.Window):
 		self.labels=self.server.labels();
 		if (self.pause):
 			return;
-		self.point(self.server.auto.x,100+1+self.server.road.path[self.server.road.position]*10,(255,0,0));
+		# self.point(self.server.auto.x,100+1+self.server.road.path[self.server.road.block_index]*10,(255,0,0));
+		self.temporary()
+		y=self.server.road.path[self.server.road.block_index]
+		self.circle(self.server.auto.x,100+1+y*10,color=(255,0,0));
+
+		self.permanent()
 		self.point(self.server.auto.x,self.server.auto.v,(255,255,0))
 
 		self.dt=dt;
@@ -68,10 +88,12 @@ class Graphics(pyglet.window.Window):
 	def on_draw(self):
 		self.clear()
 		self.fps_display.draw()
-		self.batch.draw();
+		self.perma_batch.draw();
+		self.temp_batch.draw();
 		self.label=self.text('\n'.join(['%s: %9s' % (key ,value) if value!="-" else " " for (key,value) in self.labels.items()])
 			,font_name="Courier",anchor_x='right',anchor_y='top',x=self.width-10,y=self.height,align='right',width=250,font_size=10,multiline=True,bold=True)
 		self.label.draw()
+		self.temp_batch = pyglet.graphics.Batch()
 		return
 	
 	def run(self,callback,fps=60):
@@ -94,44 +116,45 @@ class Graphics(pyglet.window.Window):
 
 
 class Road(object):
+	def __init__(self,path,path_block_length,C_drag,C_rolling_resistence,C_friction,g=9.8,theta=0.0,block_index=0):
+		kwargs=locals()
+		for key, value in kwargs.items():
+			setattr(self, key, value)
+
 	pass;
-road = Road();
-road.C_drag	=	0.4257	# resistence constant 
-road.C_road_rolling 	=	12.8	# rolling resistence constant 
-road.C_road_friction	=	0.7 	# braking resistence (dry asphalt)
-road.g 					= 	9.8	 	# gravity
-road.path 				= 	[4,4,4,4.5,5,5.5,6,6.7,6.8,6.9,7,7.5,8,8,8,8,8,8,8,8,8,8,8,8,8,8,7.5,7,6,5,4,3,2,
-							1.5,1,1,1,1,2,3,3,2,2,2,3,3,2,2,2.5,2.5,2.6,2.7,2.8,3,3.5,4,4.5,5,4.5,4.5,4.5,4]
-road.path.extend([4] * 20)					
-road.path_block_length	=	10
-road.theta				=	0 		# road initial angle
-road.position 			=	0
+road = Road(
+	path 				= 	[4,4,4,4.5,5,5.5,6,6.7,6.8,6.9,7,7.5,8,8,8,8,8,8,8,8,8,8,8,8,8,8,7.5,7,6,5,4,3,2,
+							1.5,1,1,1,1,2,3,3,2,2,2,3,3,2,2,2.5,2.5,2.6,2.7,2.8,3,3.5,4,4.5,5,4.5,4.5,4.5,4] + [4]*20
+	,path_block_length	=	10 		# how long each path segment is
+	,C_drag				=	0.4257	# resistence constant 
+	,C_rolling_resistence	=	12.8	# rolling resistence constant 
+	,C_friction			=	0.7 	# braking resistence (dry asphalt)
+	)
 class Automobile(object):
+	def __init__(self,gears,differential_ratio,transmission_efficiency,wheel_radius,mass,min_rpm,max_rpm,horsepower
+		,v=0.0,x=0.0,rpm=0.0,active_gear=1,gas=0.0,brake=0.0):
+		kwargs=locals()
+		self.F_traction =	\
+		self.F_drag		=	\
+		self.F_road		=	\
+		self.F_brake 	= 	\
+		self.F_slope 	= 	\
+		self.F_total	= 	0.0
+		for key, value in kwargs.items():
+			setattr(self, key, value)
 	pass;
 
-automobile= Automobile();
-automobile.gears=[0,2.66,1.78,1.30,1.0,.74,.50] 	#Corvette C5 hardtop
-automobile.differential_ratio = 3.42
-automobile.transmission_efficiency =.7
-automobile.wheel_radius = 0.34 							# meters
-automobile.mass	=	1500.0 								# kg
-automobile.min_rpm = 	1000.0
-automobile.max_rpm =	6000.0
-automobile.horsepower	=	280.0
-
-automobile.v 			= 	20 * 1000 / 3600.0 			# speed 20 km/h
-automobile.x 			=	0
-automobile.rpm			=	0.0;
-automobile.active_gear	=	1;
-automobile.gas			=	50.0
-automobile.brake 		=	0.0
-
-automobile.F_traction =	\
-automobile.F_drag	=	\
-automobile.F_road	=	\
-automobile.F_brake 	= 	\
-automobile.F_slope 	= 	\
-automobile.F_total	= 	0.0
+automobile 	= 	Automobile(
+	gears			=	[0,2.66,1.78,1.30,1.0,.74,.50] 	#Corvette C5 hardtop
+	,differential_ratio 		= 	3.42
+	,transmission_efficiency 	=	.7
+	,wheel_radius 	= 	0.34 							# meters
+	,mass			=	1500.0 							# kg
+	,min_rpm 		= 	1000.0
+	,max_rpm 		=	6000.0
+	,horsepower		=	280.0
+	,gas			=	50.0 							# initial throttle
+	)
 
 
 class Server(object):
@@ -144,6 +167,9 @@ class Server(object):
 		self.t=0.0
 		self.ticks=0
 
+	'''
+	Simple emulated automatic transmission module
+	'''
 	def automatic_transmission(self,throttle):
 		auto=self.auto
 		#let rpm go higher with higher throttle
@@ -154,6 +180,9 @@ class Server(object):
 			auto.active_gear-=1;
 		if (auto.active_gear>=len(auto.gears)): auto.active_gear=len(auto.gears)-1;
 		if (auto.active_gear<1): auto.active_gear=1;
+	'''
+	Ticks based on actual time
+	'''
 	def update(self,dt):
 		self.t+=dt;
 		self.time+=dt;
@@ -161,6 +190,9 @@ class Server(object):
 			self.t-=1.0/self.tick_per_second;
 			self.tick();
 
+	'''
+	One tick of the server clock
+	'''
 	def tick(self):
 		self.ticks+=1
 		auto=self.auto
@@ -187,16 +219,16 @@ class Server(object):
 		drive_torque 	= 	engine_torque * auto.gears[auto.active_gear] * auto.differential_ratio * auto.transmission_efficiency
 
 		#slope calculation
-		road.position 	=	(int)(math.floor(auto.x / road.path_block_length))
-		if (road.position>=len(road.path)-1): 
+		road.block_index 	=	(int)(math.floor(auto.x / road.path_block_length))
+		if (road.block_index>=len(road.path)-1): 
 			return self.end();
-		road.theta		= 	math.atan(road.path[road.position+1] - road.path[road.position])
+		road.theta		= 	math.atan(road.path[road.block_index+1] - road.path[road.block_index])
 
 		#force calculation	
 		auto.F_traction =	drive_torque / auto.wheel_radius								#motor force
 		auto.F_drag		=	road.C_drag * auto.v * auto.v 									#air resistence
-		auto.F_road		=	road.C_road_rolling * auto.v									#road resistence
-		auto.F_brake 	= 	auto.brake / 100.0 * road.C_road_friction * road.g * auto.mass	#brake force
+		auto.F_road		=	road.C_rolling_resistence * auto.v									#road resistence
+		auto.F_brake 	= 	auto.brake / 100.0 * road.C_friction * road.g * auto.mass	#brake force
 		auto.F_slope 	= 	math.sin(road.theta) * road.g * auto.mass
 		auto.F_total	= 	auto.F_traction	- auto.F_drag - auto.F_road - auto.F_brake - auto.F_slope
 		
@@ -247,14 +279,13 @@ class Server(object):
 	def run(self):
 		self.graphics= Graphics(self);
 		path=[(x * self.road.path_block_length,y*10+100) for (x,y) in list(enumerate(self.road.path))]
+		self.graphics.permanent();
 		self.graphics.line(path,(0,255,0))
-		# self.graphics.line([(0,100),(self.graphics.width,100)],(255,255,255))
 		self.graphics.run(self.update);
 
 		
 
-server = Server(road,automobile);
+server 					= 	Server(road,automobile);
 server.tick_per_second 	= 	100 		# how many ticks should constitute one second of simulation time
-server.data= [];
-server.speed = 4.0;						# speed / tick_per_second gives simulation step time
+server.speed 			= 	4.0;		# speed / tick_per_second gives simulation step time
 server.run();
