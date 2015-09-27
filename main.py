@@ -1,119 +1,121 @@
 #!/usr/bin/env python
 
 #TODO: 500ms gear shift time
-import pyglet
-import json
-import sys
-import time
-import math
+import json,sys,time,math
 from collections import OrderedDict
-class Graphics(pyglet.window.Window):
-	def exit(self):
-		pyglet.app.exit();
-	def text(self,*args,**kwargs):
-		return pyglet.text.Label(*args,**kwargs)
+try:
+	import pyglet
+	pyglet_exists = True
 
-	def __init__(self,server):
-		super(self.__class__, self).__init__(width=800,height=600,resizable=True)
-		self.server=server;
-		self.fps_display = pyglet.clock.ClockDisplay()
-		self.vertices= pyglet.graphics.vertex_list(1,"v2f")
-		self.perma_batch = pyglet.graphics.Batch()
-		self.temp_batch = pyglet.graphics.Batch()
-		self.batch=self.temp_batch;
-		self.labels=OrderedDict()
-		self.legend=self.legend()
-		self.pause=False
-		self.time=0;
-	def line(self,points,color=(255,255,255)):
-		self.batch.add(len(points),pyglet.gl.GL_LINE_STRIP,None,
-			("v2f",[float(all) for point in points for all in point])
-			,("c3B",color*len(points))
-			)
-	def permanent(self):
-		self.batch=self.perma_batch;
-	def temporary(self):
-		self.temp_batch = pyglet.graphics.Batch()
-		self.batch=self.temp_batch;
-	def circle(self,x,y,radius=5,color=(255,255,255,255)):
-		points=[];
-		for i in [math.pi/6.0 * t for t in range(0,12)]:
-			points.append((math.cos(i) * radius	+x, math.sin(i) * radius+y))
- 		return self.polygon(points,color)
- 	def polygon(self,points,color=(255,255,255)):
- 		self.batch.add(len(points),pyglet.gl.GL_POLYGON,None,
-			("v2f",[float(all) for point in points for all in point])
-			,("c3B",color*len(points))
-			)
-	def update(self,dt):
-		self.labels=self.server.labels();
-		if (self.pause):
-			return;
-		# self.point(self.server.auto.x,100+1+self.server.road.path[self.server.road.block_index]*10,(255,0,0));
-		self.temporary()
-		y=self.server.road.path[self.server.road.block_index+1]-self.server.road.path[self.server.road.block_index]
-		x=(self.server.auto.x - self.server.road.path_block_length * self.server.road.block_index)  / self.server.road.path_block_length
-		y=self.server.road.path[self.server.road.block_index] + y*x
-		self.circle(self.server.auto.x,100+y*10,color=(255,0,0));
+	class Graphics(pyglet.window.Window):
+		def exit(self):
+			pyglet.app.exit();
+		def text(self,*args,**kwargs):
+			return pyglet.text.Label(*args,**kwargs)
 
-		self.permanent()
-		self.point(self.server.auto.x,self.server.auto.v,(255,255,0))
+		def __init__(self,server):
+			super(self.__class__, self).__init__(width=800,height=600,resizable=True)
+			self.server=server;
+			self.fps_display = pyglet.clock.ClockDisplay()
+			self.vertices= pyglet.graphics.vertex_list(1,"v2f")
+			self.perma_batch = pyglet.graphics.Batch()
+			self.temp_batch = pyglet.graphics.Batch()
+			self.batch=self.temp_batch;
+			self.labels=OrderedDict()
+			self.legend=self.legend()
+			self.pause=False
+			self.time=0;
+		def line(self,points,color=(255,255,255)):
+			self.batch.add(len(points),pyglet.gl.GL_LINE_STRIP,None,
+				("v2f",[float(all) for point in points for all in point])
+				,("c3B",color*len(points))
+				)
+		def permanent(self):
+			self.batch=self.perma_batch;
+		def temporary(self):
+			self.temp_batch = pyglet.graphics.Batch()
+			self.batch=self.temp_batch;
+		def circle(self,x,y,radius=5,color=(255,255,255,255)):
+			points=[];
+			for i in [math.pi/6.0 * t for t in range(0,12)]:
+				points.append((math.cos(i) * radius	+x, math.sin(i) * radius+y))
+	 		return self.polygon(points,color)
+	 	def polygon(self,points,color=(255,255,255)):
+	 		self.batch.add(len(points),pyglet.gl.GL_POLYGON,None,
+				("v2f",[float(all) for point in points for all in point])
+				,("c3B",color*len(points))
+				)
+		def update(self,dt):
+			self.labels=self.server.labels();
+			if (self.pause):
+				return;
+			# self.point(self.server.auto.x,100+1+self.server.road.path[self.server.road.block_index]*10,(255,0,0));
+			self.temporary()
+			y=self.server.road.path[self.server.road.block_index+1]-self.server.road.path[self.server.road.block_index]
+			x=(self.server.auto.x - self.server.road.path_block_length * self.server.road.block_index)  / self.server.road.path_block_length
+			y=self.server.road.path[self.server.road.block_index] + y*x
+			self.circle(self.server.auto.x,100+y*10,color=(255,0,0));
 
-		self.dt=dt;
-		self.callback(dt);
+			self.permanent()
+			self.point(self.server.auto.x,self.server.auto.v,(255,255,0))
 
-	def on_key_release(self,symbol, modifiers):
-		if (symbol==pyglet.window.key.ESCAPE):
-			pyglet.app.exit()
-		elif (symbol==pyglet.window.key.UP):
-			self.server.auto.gas+=5;
-		elif (symbol==pyglet.window.key.DOWN):
-			self.server.auto.gas-=5;
-		elif (symbol==pyglet.window.key.W):
-			self.server.auto.brake+=5;
-		elif (symbol==pyglet.window.key.S):
-			self.server.auto.brake-=5;
-		elif (symbol==pyglet.window.key.EQUAL):
-			self.server.simulation_speed*=2;
-		elif (symbol==pyglet.window.key.MINUS):
-			self.server.simulation_speed/=2;
-		elif (symbol==pyglet.window.key.C):
-			self.server.auto.cruise_control_enabled= not self.server.auto.cruise_control_enabled
-		pass;
-	def on_key_press(self,symbol, modifiers):
-		if (symbol==pyglet.window.key.SPACE):
-			self.pause= not self.pause
-		elif (symbol==pyglet.window.key.RIGHT):
-			p=self.pause
-			self.pause=False;
-			self.update(self.dt)
-			self.pause=p;
+			self.dt=dt;
+			self.callback(dt);
 
-	def point(self,x,y,color=(255,255,255)):
-		self.batch.add(1,pyglet.gl.GL_POINTS,None,
-			("v2f",(float(x),float(y)))
-			,("c3B",color)
-			)
-	labels={}
-	def legend(self):
-		return self.text("+/- 	 = Simulation Speed\nUp/Dwn = Gas\nW/S 	 = Brake\nSpace	 = Pause\nRight	 = Next Step\nC 	 = Cruise Control"
-			,font_name="Courier New",anchor_x='left',anchor_y='top',x=5,y=self.height,align='left',width=250,font_size=10,multiline=True)
+		def on_key_release(self,symbol, modifiers):
+			if (symbol==pyglet.window.key.ESCAPE):
+				pyglet.app.exit()
+			elif (symbol==pyglet.window.key.UP):
+				self.server.auto.gas+=5;
+			elif (symbol==pyglet.window.key.DOWN):
+				self.server.auto.gas-=5;
+			elif (symbol==pyglet.window.key.W):
+				self.server.auto.brake+=5;
+			elif (symbol==pyglet.window.key.S):
+				self.server.auto.brake-=5;
+			elif (symbol==pyglet.window.key.EQUAL):
+				self.server.simulation_speed*=2;
+			elif (symbol==pyglet.window.key.MINUS):
+				self.server.simulation_speed/=2;
+			elif (symbol==pyglet.window.key.C):
+				self.server.auto.cruise_control_enabled= not self.server.auto.cruise_control_enabled
+			pass;
+		def on_key_press(self,symbol, modifiers):
+			if (symbol==pyglet.window.key.SPACE):
+				self.pause= not self.pause
+			elif (symbol==pyglet.window.key.RIGHT):
+				p=self.pause
+				self.pause=False;
+				self.update(self.dt)
+				self.pause=p;
 
-	def on_draw(self):
-		self.clear()
-		self.fps_display.draw()
-		self.perma_batch.draw();
-		self.temp_batch.draw();
-		self.label=self.text('\n'.join(['%s: %10s' % (key ,value) if value!="-" else " " for (key,value) in self.labels.items()])
-			,font_name="Courier New",anchor_x='right',anchor_y='top',x=self.width-10,y=self.height,align='right',width=250,font_size=10,multiline=True,bold=True)
-		self.label.draw()
-		self.legend.draw()
-		return
-	
-	def run(self,callback,fps=60):
-		self.callback=callback
-		pyglet.clock.schedule_interval(self.update, 1.0/fps)
-		pyglet.app.run()
+		def point(self,x,y,color=(255,255,255)):
+			self.batch.add(1,pyglet.gl.GL_POINTS,None,
+				("v2f",(float(x),float(y)))
+				,("c3B",color)
+				)
+		labels={}
+		def legend(self):
+			return self.text("+/- 	 = Simulation Speed\nUp/Dwn = Gas\nW/S 	 = Brake\nSpace	 = Pause\nRight	 = Next Step\nC 	 = Cruise Control"
+				,font_name="Courier New",anchor_x='left',anchor_y='top',x=5,y=self.height,align='left',width=250,font_size=10,multiline=True)
+
+		def on_draw(self):
+			self.clear()
+			self.fps_display.draw()
+			self.perma_batch.draw();
+			self.temp_batch.draw();
+			self.label=self.text('\n'.join(['%s: %10s' % (key ,value) if value!="-" else " " for (key,value) in self.labels.items()])
+				,font_name="Courier New",anchor_x='right',anchor_y='top',x=self.width-10,y=self.height,align='right',width=250,font_size=10,multiline=True,bold=True)
+			self.label.draw()
+			self.legend.draw()
+			return
+		
+		def run(self,callback,fps=60):
+			self.callback=callback
+			pyglet.clock.schedule_interval(self.update, 1.0/fps)
+			pyglet.app.run()
+except ImportError:
+	pyglet_exists = False
 
 
 # g=Graphics();
@@ -186,6 +188,7 @@ class Simulator(JSONLoader):
 		self.accumulated_time=0.0
 		self.ticks=0
 		self.score=self.max_score
+		self.finished=False
 
 	'''
 	Simple emulated automatic transmission module
@@ -327,23 +330,43 @@ class Simulator(JSONLoader):
 
 		
 	def end(self):
-		pyglet.app.exit();
+
+		self.finished=True;
+		if pyglet_exists and args.gui:
+			pyglet.app.exit();
 		pass
 	def run(self):
-		self.graphics= Graphics(self);
-		path=[(x * self.road.path_block_length,y*10+100) for (x,y) in list(enumerate(self.road.path))]
-		self.graphics.permanent();
-		self.graphics.line(path,(0,255,0))
-		self.graphics.run(self.update);
+		if pyglet_exists and args.gui:
+			self.graphics= Graphics(self);
+			path=[(x * self.road.path_block_length,y*10+100) for (x,y) in list(enumerate(self.road.path))]
+			self.graphics.permanent();
+			self.graphics.line(path,(0,255,0))
+			self.graphics.run(self.update);
+		else:
+			while not self.finished:
+				self.tick()
+				if self.ticks%args.key_tick==0:
+					print
+					print "-"*30,"Tick",self.ticks,"-"*30
+					print "\n".join(['%-20s: %10s' % (key ,value) if value!="-" else " " for (key,value) in self.labels().items()])
+				else:
+					sys.stdout.write('.')
+					sys.stdout.flush()
+				time.sleep(1/1000.0*args.delay)
+			print "\n","-"*30,"done","-"*30
+
 
 import argparse
 parser = argparse.ArgumentParser(prog="CCSIM",formatter_class=argparse.RawDescriptionHelpFormatter,description='''Cruise Control Simulator
 
 Any argument not provided will be overriden by the default simulation''')
-parser.add_argument('-road', nargs=1,help='the road file',default="bumpy.road")
-parser.add_argument('-car', nargs=1,help='the car file',default="CorvetteC5.car")
-parser.add_argument('-sim', nargs=1,help='the simulation file',default="test.sim")
-parser.add_argument('-cc', nargs=1,help='the cruise control application')
+parser.add_argument('--road', nargs=1,help='the road file',default="bumpy.road")
+parser.add_argument('--car', nargs=1,help='the car file',default="CorvetteC5.car")
+parser.add_argument('--sim', nargs=1,help='the simulation file',default="test.sim")
+parser.add_argument('--cc', nargs=1,help='the cruise control application')
+parser.add_argument('--gui',help='show simulation GUI',action='store_true',default=True)
+parser.add_argument('--delay', nargs=1,type=int,help='delay between ticks in miliseconds (CLI only)',default=10)
+parser.add_argument('--key-tick', nargs=1,type=int,help='which tick to show report on (CLI only)',default=100)
 args = parser.parse_args()
 
 road 		=	Road.load(args.road)
