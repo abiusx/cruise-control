@@ -22,6 +22,7 @@ class Graphics(pyglet.window.Window):
 		self.temp_batch = pyglet.graphics.Batch()
 		self.batch=self.temp_batch;
 		self.labels=OrderedDict()
+		self.legend=self.legend()
 		self.pause=False
 		self.time=0;
 	def line(self,points,color=(255,255,255)):
@@ -76,6 +77,8 @@ class Graphics(pyglet.window.Window):
 			self.server.simulation_speed*=2;
 		elif (symbol==pyglet.window.key.MINUS):
 			self.server.simulation_speed/=2;
+		elif (symbol==pyglet.window.key.C):
+			self.server.auto.cruise_control_enabled= not self.server.auto.cruise_control_enabled
 		pass;
 	def on_key_press(self,symbol, modifiers):
 		if (symbol==pyglet.window.key.SPACE):
@@ -92,6 +95,10 @@ class Graphics(pyglet.window.Window):
 			,("c3B",color)
 			)
 	labels={}
+	def legend(self):
+		return self.text("+/- 	 = Simulation Speed\nUp/Dwn = Gas\nW/S 	 = Brake\nSpace	 = Pause\nRight	 = Next Step\nC 	 = Cruise Control"
+			,font_name="Courier",anchor_x='left',anchor_y='top',x=5,y=self.height,align='left',width=250,font_size=10,multiline=True)
+
 	def on_draw(self):
 		self.clear()
 		self.fps_display.draw()
@@ -100,6 +107,7 @@ class Graphics(pyglet.window.Window):
 		self.label=self.text('\n'.join(['%s: %10s' % (key ,value) if value!="-" else " " for (key,value) in self.labels.items()])
 			,font_name="Courier",anchor_x='right',anchor_y='top',x=self.width-10,y=self.height,align='right',width=250,font_size=10,multiline=True,bold=True)
 		self.label.draw()
+		self.legend.draw()
 		return
 	
 	def run(self,callback,fps=60):
@@ -297,7 +305,8 @@ class Simulator(JSONLoader):
 		
 
 		labels["1"]="-";
-		labels["Time"]=format(self.time,".3f")+"s";
+		labels["Real Time"]=format(self.time,".3f")+"s";
+		labels["Sim Time"]=format(self.ticks / float(self.tick_per_second),".3f")+"s";
 		labels["Ticks"]=str(self.ticks)
 		labels["2"]="-";
 		labels["RPM"]=format(auto.rpm,".0f")+"" ;
@@ -342,4 +351,4 @@ automobile 	=	CruiseControlAutomobile.load(args.car);
 simulator 	=	Simulator.load(args.sim,road=road,auto=automobile);
 # automobile.set_speed=automobile.v=120.0*1000/3600
 simulator.run();
-print "Final score:",format(server.score,".2f"),"/",format(server.max_score,".2f")," (%.2f%%)" % (server.score/server.max_score*100.0);
+print "Final score:",format(simulator.score,".2f"),"/",format(simulator.max_score,".2f")," (%.2f%%)" % (simulator.score/simulator.max_score*100.0);
