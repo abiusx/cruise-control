@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-
 #TODO: 500ms gear shift time
 import json,sys,time,math
 from collections import OrderedDict
+
 try:
 	import pyglet
 	pyglet_exists = True
@@ -118,14 +118,6 @@ except ImportError:
 	pyglet_exists = False
 
 
-# g=Graphics();
-# g.chart([(10,2),(5,30)])
-# g.point(100,100)
-# g.line([(110,110),(200,200),(100,300)])
-# g.line([(50,50),(300,52)])
-# g.run();
-# exit(0);
-
 class JSONLoader(object):
 	@classmethod
 	def load(cls,file,**kwargs):
@@ -162,8 +154,6 @@ class Automobile(JSONLoader):
 		self.F_total	= 	0.0
 		for key, value in kwargs.items():
 			setattr(self, key, value)
-	pass;
-        
 
 
 class CruiseControlAutomobile(Automobile):
@@ -204,7 +194,7 @@ class Simulator(JSONLoader):
 		if (auto.active_gear>=len(auto.gears)): auto.active_gear=len(auto.gears)-1;
 		if (auto.active_gear<1): auto.active_gear=1;
 	'''
-	Ticks based on actual time
+	Ticks based on actual time (because rendering FPS is 60 fixed)
 	'''
 	def update(self,dt):
 		self.accumulated_time+=dt;
@@ -214,7 +204,7 @@ class Simulator(JSONLoader):
 			self.tick();
 
 	'''
-	One tick of the server clock
+	One tick of the simulator clock
 	'''
 	def tick(self):
 		self.ticks+=1
@@ -345,15 +335,18 @@ class Simulator(JSONLoader):
 		else:
 			while not self.finished:
 				self.tick()
-				if self.ticks%args.key_tick==0:
+				if self.ticks%args.key_tick==0 and not args.quiet:
 					print
 					print "-"*30,"Tick",self.ticks,"-"*30
 					print "\n".join(['%-20s: %10s' % (key ,value) if value!="-" else " " for (key,value) in self.labels().items()])
 				else:
-					sys.stdout.write('.')
-					sys.stdout.flush()
-				time.sleep(1/1000.0*args.delay)
-			print "\n","-"*30,"done","-"*30
+					if not args.quiet:
+						sys.stdout.write('.')
+						sys.stdout.flush()
+				if not args.quiet:
+					time.sleep(1/1000.0*args.delay)
+			if not args.quiet:
+				print "\n","-"*30,"done","-"*30
 
 
 import argparse
@@ -364,14 +357,25 @@ parser.add_argument('--road', nargs=1,help='the road file',default="bumpy.road")
 parser.add_argument('--car', nargs=1,help='the car file',default="CorvetteC5.car")
 parser.add_argument('--sim', nargs=1,help='the simulation file',default="test.sim")
 parser.add_argument('--cc', nargs=1,help='the cruise control application')
-parser.add_argument('--gui',help='show simulation GUI',action='store_true',default=True)
+parser.add_argument('--gui',dest="gui",help='show simulation GUI (needs pyglet installed)',action='store_true',default=pyglet_exists)
+parser.add_argument('--no-gui',dest="gui",help='do not show simulation GUI (CLI mode)',action='store_false')
 parser.add_argument('--delay', nargs=1,type=int,help='delay between ticks in miliseconds (CLI only)',default=10)
 parser.add_argument('--key-tick', nargs=1,type=int,help='which tick to show report on (CLI only)',default=100)
+parser.add_argument('--quiet',help='don''t output anything except the final score (CLI only)',action='store_true',default=False)
 args = parser.parse_args()
+if args.gui and not pyglet_exists:
+	print "Needs pyglet to run in GUI mode."
+	exit(1)
 
 road 		=	Road.load(args.road)
 automobile 	=	CruiseControlAutomobile.load(args.car);
 simulator 	=	Simulator.load(args.sim,road=road,auto=automobile);
 # automobile.set_speed=automobile.v=120.0*1000/3600
 simulator.run();
-print "Final score:",format(simulator.score,".2f"),"/",format(simulator.max_score,".2f")," (%.2f%%)" % (simulator.score/simulator.max_score*100.0);
+
+if args.quiet:
+	print format(simulator.score,".2f")
+	print format(simulator.max_score,".2f")
+	print format(simulator.score/simulator.max_score*100.0,".2f")
+else:
+	print "Final score:",format(simulator.score,".2f"),"/",format(simulator.max_score,".2f")," (%.2f%%)" % (simulator.score/simulator.max_score*100.0);
