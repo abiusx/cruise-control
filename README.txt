@@ -25,3 +25,7 @@ To see all available options.
 
 == Support ==
 E-mail cc1@abiusx.com for any questions.
+
+
+== Technical Details ==
+The simulation formula and details can be seen in Simulator::tick function inside main.py. A crude cruise control is already implemented in the system for you to see.
