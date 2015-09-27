@@ -49,7 +49,7 @@ class Graphics(pyglet.window.Window):
 		# self.point(self.server.auto.x,100+1+self.server.road.path[self.server.road.block_index]*10,(255,0,0));
 		self.temporary()
 		y=self.server.road.path[self.server.road.block_index]
-		self.circle(self.server.auto.x,100+1+y*10,color=(255,0,0));
+		self.circle(self.server.auto.x,100+y*10,color=(255,0,0));
 
 		self.permanent()
 		self.point(self.server.auto.x,self.server.auto.v,(255,255,0))
@@ -69,9 +69,9 @@ class Graphics(pyglet.window.Window):
 		elif (symbol==pyglet.window.key.S):
 			self.server.auto.brake-=5;
 		elif (symbol==pyglet.window.key.EQUAL):
-			self.server.speed*=2;
+			self.server.simulation_speed*=2;
 		elif (symbol==pyglet.window.key.MINUS):
-			self.server.speed/=2;
+			self.server.simulation_speed/=2;
 		pass;
 	def on_key_press(self,symbol, modifiers):
 		if (symbol==pyglet.window.key.SPACE):
@@ -144,7 +144,15 @@ class Automobile(object):
 			setattr(self, key, value)
 	pass;
 
-automobile 	= 	Automobile(
+class CruiseControlAutomobile(Automobile):
+	def __init__(self,cruise_control_enabled=True,set_speed=40*1000/3600.0, **kwargs):
+		super(self.__class__, self).__init__(**kwargs)
+		self.cruise_control_enabled=cruise_control_enabled
+		self.set_speed=set_speed;
+		self.v=set_speed			#start off with the CC speed, or a lot of penalty will be incurred
+
+
+automobile 	= 	CruiseControlAutomobile(
 	gears			=	[0,2.66,1.78,1.30,1.0,.74,.50] 	#Corvette C5 hardtop
 	,differential_ratio 		= 	3.42
 	,transmission_efficiency 	=	.7
@@ -160,12 +168,16 @@ automobile 	= 	Automobile(
 class Server(object):
 	road=Road
 	auto=Automobile
-	def __init__(self,road, auto):
+	def __init__(self,road, auto,tick_per_second,simulation_speed= 	1.0	,max_score 	=	1000.0):
 		self.auto=auto;
 		self.road=road;
+		self.tick_per_second=tick_per_second;
+		self.simulation_speed=simulation_speed
+		self.max_score=max_score
 		self.time=0.0
-		self.t=0.0
+		self.accumulated_time=0.0
 		self.ticks=0
+		self.score=self.max_score
 
 	'''
 	Simple emulated automatic transmission module
@@ -184,10 +196,10 @@ class Server(object):
 	Ticks based on actual time
 	'''
 	def update(self,dt):
-		self.t+=dt;
+		self.accumulated_time+=dt;
 		self.time+=dt;
-		while (self.t>1.0/self.tick_per_second):
-			self.t-=1.0/self.tick_per_second;
+		while (self.accumulated_time>1.0/self.tick_per_second/self.simulation_speed):
+			self.accumulated_time-=1.0/self.tick_per_second/self.simulation_speed;
 			self.tick();
 
 	'''
@@ -197,6 +209,9 @@ class Server(object):
 		self.ticks+=1
 		auto=self.auto
 		road=self.road
+
+		#cruise control feedback
+		self.cruise_control();
 
 		#validation
 		if (auto.gas > 100): 	auto.gas = 100;
@@ -234,22 +249,44 @@ class Server(object):
 		
 		#speed calculation
 		auto.a 			=	auto.F_total / auto.mass  
-		auto.v			+=	auto.a / self.tick_per_second * self.speed
+		auto.v			+=	auto.a / self.tick_per_second 
 		if (auto.v<0): 
 			auto.v 	=	0;			#can't go negative
-		auto.x 			+= auto.v / self.tick_per_second  * self.speed
+		auto.x 			+= auto.v / self.tick_per_second  
 
 
 		#automatic transmission
 		self.automatic_transmission(throttle)
+
+		#score calculation
+		if (auto.cruise_control_enabled):
+			self.score-= (auto.set_speed-auto.v)**2;
+			if (self.score<0): self.score=0;
 		return True;
+
+	def cruise_control(self):
+		'''
+		basic stupid implementation of cruise control
+		only works fine with high ticks
+		'''
+		auto=self.auto
+		if not auto.cruise_control_enabled: return False;
+		desired_speed=auto.set_speed
+		if (desired_speed<auto.v):
+			auto.brake+=5;
+			auto.gas=0
+		elif (desired_speed>auto.v):
+			auto.brake=0;
+			auto.gas+=5;
+		pass;
 
 
 	def labels(self):
 		auto=self.auto
 		road=self.road
 		labels=OrderedDict();
-		labels["Simulation Speed"]=format(self.speed,".1f")+"X";
+		labels["Score"]=format(self.score,".1f")+"";
+		labels["Simulation Speed"]=format(self.simulation_speed,".1f")+"X";
 		labels["Time"]=format(self.time,".3f")+"s";
 		labels["Ticks"]=str(self.ticks)
 		labels["1"]="-";
@@ -275,6 +312,7 @@ class Server(object):
 
 		
 	def end(self):
+		pyglet.app.exit();
 		pass
 	def run(self):
 		self.graphics= Graphics(self);
@@ -285,7 +323,10 @@ class Server(object):
 
 		
 
-server 					= 	Server(road,automobile);
-server.tick_per_second 	= 	100 		# how many ticks should constitute one second of simulation time
-server.speed 			= 	4.0;		# speed / tick_per_second gives simulation step time
+server 					= 	Server(road,automobile
+	,tick_per_second 	= 	100 		# how many ticks should constitute one second of simulation time
+	,simulation_speed	= 	1.0		# speed / tick_per_second gives simulation step time
+	,max_score 		=	1000.0 		# maximum possible score in this map
+	)
 server.run();
+print "Final score:",format(server.score,".2f"),"/",format(server.max_score,".2f")," (%.2f%%)" % (server.score/server.max_score*100.0);
