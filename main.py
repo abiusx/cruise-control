@@ -1,7 +1,8 @@
-#!/bin/env python
+#!/usr/bin/env python
 
 #TODO: 500ms gear shift time
 import pyglet
+import json
 import sys
 import time
 import math
@@ -115,29 +116,33 @@ class Graphics(pyglet.window.Window):
 # g.run();
 # exit(0);
 
+class JSONLoader(object):
+	@classmethod
+	def load(cls,file,**kwargs):
+		data=open(file,"r").read()
+		data=json.loads(data);
+		data.update(kwargs)
+		return cls(**data);
+	def save(self,file):
+		dict=self.__dict__
+		res={}
+		for key in dict:
+			if not isinstance(dict[key], JSONLoader):
+				res[key]=dict[key];
+		open(file,"w").write(json.dumps(res,ensure_ascii=False).replace(", \"",",\n\""));
 
 
 
-
-
-class Road(object):
-	def __init__(self,path,path_block_length,C_drag,C_rolling_resistence,C_friction,g=9.8,theta=0.0,block_index=0):
+class Road(JSONLoader):
+	def __init__(self,path,path_block_length,C_drag,C_rolling_resistence,C_friction,g=9.8,theta=0.0,block_index=0,**kwargs):
 		kwargs=locals()
 		for key, value in kwargs.items():
 			setattr(self, key, value)
 
-	pass;
-road = Road(
-	path 				= 	[4,4,4,4.5,5,5.5,6,6.7,6.8,6.9,7,7.5,8,8,8,8,8,8,8,8,8,8,8,8,8,8,7.5,7,6,5,4,3,2,
-							1.5,1,1,1,1,2,3,3,2,2,2,3,3,2,2,2.5,2.5,2.6,2.7,2.8,3,3.5,4,4.5,5,4.5,4.5,4.5,4] + [4]*20
-	,path_block_length	=	10 		# how long each path segment is
-	,C_drag				=	0.4257	# resistence constant 
-	,C_rolling_resistence	=	12.8	# rolling resistence constant 
-	,C_friction			=	0.7 	# braking resistence (dry asphalt)
-	)
-class Automobile(object):
+
+class Automobile(JSONLoader):
 	def __init__(self,gears,differential_ratio,transmission_efficiency,wheel_radius,mass,min_rpm,max_rpm,horsepower
-		,v=0.0,x=0.0,rpm=0.0,active_gear=1,gas=0.0,brake=0.0):
+		,v=0.0,x=0.0,rpm=0.0,active_gear=1,gas=0.0,brake=0.0,**kwargs):
 		kwargs=locals()
 		self.F_traction =	\
 		self.F_drag		=	\
@@ -148,6 +153,8 @@ class Automobile(object):
 		for key, value in kwargs.items():
 			setattr(self, key, value)
 	pass;
+        
+
 
 class CruiseControlAutomobile(Automobile):
 	def __init__(self,cruise_control_enabled=True,set_speed=40*1000/3600.0, **kwargs):
@@ -155,25 +162,13 @@ class CruiseControlAutomobile(Automobile):
 		self.cruise_control_enabled=cruise_control_enabled
 		self.set_speed=set_speed;
 		self.v=set_speed			#start off with the CC speed, or a lot of penalty will be incurred
+        
 
 
-automobile 	= 	CruiseControlAutomobile(
-	gears			=	[0,2.66,1.78,1.30,1.0,.74,.50] 	#Corvette C5 hardtop
-	,differential_ratio 		= 	3.42
-	,transmission_efficiency 	=	.7
-	,wheel_radius 	= 	0.34 							# meters
-	,mass			=	1500.0 							# kg
-	,min_rpm 		= 	1000.0
-	,max_rpm 		=	6000.0
-	,horsepower		=	280.0
-	,gas			=	50.0 							# initial throttle
-	)
-
-
-class Simulator(object):
+class Simulator(JSONLoader):
 	road=Road
 	auto=Automobile
-	def __init__(self,road, auto,tick_per_second,simulation_speed= 	1.0	,max_score 	=	1000.0):
+	def __init__(self,road, auto,tick_per_second,simulation_speed= 	1.0	,max_score 	=	1000.0,**kwargs):
 		self.auto=auto;
 		self.road=road;
 		self.tick_per_second=tick_per_second;
@@ -332,14 +327,19 @@ class Simulator(object):
 		self.graphics.line(path,(0,255,0))
 		self.graphics.run(self.update);
 
-		
+import argparse
+parser = argparse.ArgumentParser(prog="CCSIM",formatter_class=argparse.RawDescriptionHelpFormatter,description='''Cruise Control Simulator
 
+Any argument not provided will be overriden by the default simulation''')
+parser.add_argument('-road', nargs=1,help='the road file',default="bumpy.road")
+parser.add_argument('-car', nargs=1,help='the car file',default="CorvetteC5.car")
+parser.add_argument('-sim', nargs=1,help='the simulation file',default="test.sim")
+parser.add_argument('-cc', nargs=1,help='the cruise control application')
+args = parser.parse_args()
+
+road 		=	Road.load(args.road)
+automobile 	=	CruiseControlAutomobile.load(args.car);
+simulator 	=	Simulator.load(args.sim,road=road,auto=automobile);
 # automobile.set_speed=automobile.v=120.0*1000/3600
-
-server 					= 	Simulator(road,automobile
-	,tick_per_second 	= 	10 		# how many ticks should constitute one second of simulation time
-	,simulation_speed	= 	2.0		# speed / tick_per_second gives simulation step time
-	,max_score 		=	1000.0 		# maximum possible score in this map
-	)
-server.run();
+simulator.run();
 print "Final score:",format(server.score,".2f"),"/",format(server.max_score,".2f")," (%.2f%%)" % (server.score/server.max_score*100.0);
