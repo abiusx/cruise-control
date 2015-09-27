@@ -14,7 +14,7 @@ class Graphics(pyglet.window.Window):
 		return pyglet.text.Label(*args,**kwargs)
 
 	def __init__(self,server):
-		super(self.__class__, self).__init__(width=800,resizable=True)
+		super(self.__class__, self).__init__(width=800,height=600,resizable=True)
 		self.server=server;
 		self.fps_display = pyglet.clock.ClockDisplay()
 		self.vertices= pyglet.graphics.vertex_list(1,"v2f")
@@ -97,7 +97,7 @@ class Graphics(pyglet.window.Window):
 	labels={}
 	def legend(self):
 		return self.text("+/- 	 = Simulation Speed\nUp/Dwn = Gas\nW/S 	 = Brake\nSpace	 = Pause\nRight	 = Next Step\nC 	 = Cruise Control"
-			,font_name="Courier",anchor_x='left',anchor_y='top',x=5,y=self.height,align='left',width=250,font_size=10,multiline=True)
+			,font_name="Courier New",anchor_x='left',anchor_y='top',x=5,y=self.height,align='left',width=250,font_size=10,multiline=True)
 
 	def on_draw(self):
 		self.clear()
@@ -105,7 +105,7 @@ class Graphics(pyglet.window.Window):
 		self.perma_batch.draw();
 		self.temp_batch.draw();
 		self.label=self.text('\n'.join(['%s: %10s' % (key ,value) if value!="-" else " " for (key,value) in self.labels.items()])
-			,font_name="Courier",anchor_x='right',anchor_y='top',x=self.width-10,y=self.height,align='right',width=250,font_size=10,multiline=True,bold=True)
+			,font_name="Courier New",anchor_x='right',anchor_y='top',x=self.width-10,y=self.height,align='right',width=250,font_size=10,multiline=True,bold=True)
 		self.label.draw()
 		self.legend.draw()
 		return
