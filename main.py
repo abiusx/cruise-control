@@ -31,6 +31,7 @@ class Graphics(pyglet.window.Window):
 	def permanent(self):
 		self.batch=self.perma_batch;
 	def temporary(self):
+		self.temp_batch = pyglet.graphics.Batch()
 		self.batch=self.temp_batch;
 	def circle(self,x,y,radius=5,color=(255,255,255,255)):
 		points=[];
@@ -77,7 +78,10 @@ class Graphics(pyglet.window.Window):
 		if (symbol==pyglet.window.key.SPACE):
 			self.pause= not self.pause
 		elif (symbol==pyglet.window.key.RIGHT):
-			self.callback(self.dt)
+			p=self.pause
+			self.pause=False;
+			self.update(self.dt)
+			self.pause=p;
 
 	def point(self,x,y,color=(255,255,255)):
 		self.batch.add(1,pyglet.gl.GL_POINTS,None,
@@ -90,10 +94,9 @@ class Graphics(pyglet.window.Window):
 		self.fps_display.draw()
 		self.perma_batch.draw();
 		self.temp_batch.draw();
-		self.label=self.text('\n'.join(['%s: %9s' % (key ,value) if value!="-" else " " for (key,value) in self.labels.items()])
+		self.label=self.text('\n'.join(['%s: %10s' % (key ,value) if value!="-" else " " for (key,value) in self.labels.items()])
 			,font_name="Courier",anchor_x='right',anchor_y='top',x=self.width-10,y=self.height,align='right',width=250,font_size=10,multiline=True,bold=True)
 		self.label.draw()
-		self.temp_batch = pyglet.graphics.Batch()
 		return
 	
 	def run(self,callback,fps=60):
@@ -273,11 +276,14 @@ class Server(object):
 		if not auto.cruise_control_enabled: return False;
 		desired_speed=auto.set_speed
 		if (desired_speed<auto.v):
-			auto.brake+=5;
+			auto.brake+=25;
 			auto.gas=0
 		elif (desired_speed>auto.v):
 			auto.brake=0;
-			auto.gas+=5;
+			auto.gas+=25;
+		else:
+			auto.brake=0;
+			auto.gas=5
 		pass;
 
 
@@ -285,18 +291,21 @@ class Server(object):
 		auto=self.auto
 		road=self.road
 		labels=OrderedDict();
-		labels["Score"]=format(self.score,".1f")+"";
+		labels["Score"]=format(self.score,".2f")+"";
 		labels["Simulation Speed"]=format(self.simulation_speed,".1f")+"X";
-		labels["Time"]=format(self.time,".3f")+"s";
-		labels["Ticks"]=str(self.ticks)
-		labels["1"]="-";
+		labels["Cruise Control"]=format(self.auto.set_speed*3600/1000,".1f")+" km/h" if self.auto.cruise_control_enabled else "Off";
+		labels["Speed"]=format(auto.v*3600/1000.0,".1f")+" km/h" ;
 		labels["Gas"]=format(auto.gas,".1f")+"%";
 		labels["Brake"]=format(auto.brake,".1f")+"%";
-		labels["Speed"]=format(auto.v*3600/1000.0,".1f")+" km/h" ;
+		
+
+		labels["1"]="-";
+		labels["Time"]=format(self.time,".3f")+"s";
+		labels["Ticks"]=str(self.ticks)
 		labels["2"]="-";
 		labels["RPM"]=format(auto.rpm,".0f")+"" ;
 		labels["Gear"]=str(auto.active_gear)
-		# g.labels["v"]=format(auto.v,".1f")+" m/s" ;
+
 		labels["Distance"]=format(auto.x,".2f")+" m" ;
 		labels["Remaining"]=format(road.path_block_length* len(road.path)-auto.x,".2f")+" m" ;
 		labels["3"]="-";
@@ -323,9 +332,11 @@ class Server(object):
 
 		
 
+# automobile.set_speed=automobile.v=120.0*1000/3600
+
 server 					= 	Server(road,automobile
-	,tick_per_second 	= 	100 		# how many ticks should constitute one second of simulation time
-	,simulation_speed	= 	1.0		# speed / tick_per_second gives simulation step time
+	,tick_per_second 	= 	10 		# how many ticks should constitute one second of simulation time
+	,simulation_speed	= 	2.0		# speed / tick_per_second gives simulation step time
 	,max_score 		=	1000.0 		# maximum possible score in this map
 	)
 server.run();
