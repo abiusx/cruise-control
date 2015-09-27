@@ -229,6 +229,7 @@ class Server(object):
 		labels["Gear"]=str(auto.active_gear)
 		# g.labels["v"]=format(auto.v,".1f")+" m/s" ;
 		labels["Distance"]=format(auto.x,".2f")+" m" ;
+		labels["Remaining"]=format(road.path_block_length* len(road.path)-auto.x,".2f")+" m" ;
 		labels["3"]="-";
 		labels["Slope"]=format(road.theta*180/math.pi,"2.1f")+"" ;
 		labels["Drive Force"]=format(auto.F_traction,"0.0f")+" N" ;
@@ -253,7 +254,6 @@ class Server(object):
 		
 
 server = Server(road,automobile);
-print "Track length:",road.path_block_length* len(road.path)
 server.tick_per_second 	= 	100 		# how many ticks should constitute one second of simulation time
 server.data= [];
 server.speed = 4.0;						# speed / tick_per_second gives simulation step time
