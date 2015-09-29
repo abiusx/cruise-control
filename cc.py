@@ -25,7 +25,6 @@ while True:
 			current_speed=float(params["Speed"]);
 			gas=float(params["Gas"]);
 			brake=float(params["Brake"]);
-			# print desired_speed,current_speed
 			if current_speed<desired_speed:
 				if brake!=0:
 					brake=0

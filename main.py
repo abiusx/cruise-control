@@ -435,9 +435,9 @@ import argparse
 parser = argparse.ArgumentParser(prog="CCSIM",formatter_class=argparse.RawDescriptionHelpFormatter,description='''Cruise Control Simulator
 
 Any argument not provided will be overriden by the default simulation''')
-parser.add_argument('--road', help='the road file',default="uphill.road")
+parser.add_argument('--road', help='the road file',default="bumpy.road")
 parser.add_argument('--car', help='the car file',default="CorvetteC5.car")
-parser.add_argument('--sim', help='the simulation file',default="uphill.sim")
+parser.add_argument('--sim', help='the simulation file',default="bumpy.sim")
 parser.add_argument('--cc', help='the cruise control application')
 parser.add_argument('--gui',dest="gui",help='show simulation GUI (needs pyglet installed)',action='store_true',default=pyglet_exists)
 parser.add_argument('--no-gui',dest="gui",help='do not show simulation GUI (CLI mode)',action='store_false')
