@@ -97,9 +97,11 @@ try:
 			self.batch.add(1,pyglet.gl.GL_POINTS,None,("v2f",(float(x),float(y))),("c3B",color)	)
 
 		def legend(self):
-			return self.text("+/- 	 = Simulation Speed\nUp/Dwn = Gas\nW/S 	 = Brake\nSpace	 = Pause\nRight	 = Next Step\nC 	 = Cruise Control\n\nSim:  %s\nRoad: %s\nCar:  %s\nCC:   %s" % (args.sim,args.road,args.car,args.cc)
+			return [self.text("+/- 	 = Simulation Speed\nUp/Dwn = Gas\nW/S 	 = Brake\nSpace	 = Pause\nRight	 = Next Step\nC 	 = Cruise Control"
 				,font_name="Courier New",anchor_x='left',anchor_y='top',x=5,y=self.height,align='left',width=250,font_size=10,multiline=True)
-
+			,
+			self.text("Sim  %s\nRoad %s\nCar  %s\nCC   %s" % (args.sim,args.road,args.car,args.cc)
+				,font_name="Courier New",anchor_x='left',anchor_y='top',x=5,y=self.height-150,align='left',width=450,font_size=10,multiline=True)]
 		def on_draw(self):
 			self.clear()
 			self.fps_display.draw()
@@ -108,7 +110,8 @@ try:
 			self.label=self.text('\n'.join(['%s: %10s' % (key ,value) if value!="-" else " " for (key,value) in self.labels.items()])
 				,font_name="Courier New",anchor_x='right',anchor_y='top',x=self.width-10,y=self.height,align='right',width=250,font_size=10,multiline=True,bold=True)
 			self.label.draw()
-			self.legend.draw()
+			for legend in self.legend:
+				legend.draw()
 			return
 		
 		def run(self,callback,fps=60):
@@ -435,9 +438,9 @@ import argparse
 parser = argparse.ArgumentParser(prog="CCSIM",formatter_class=argparse.RawDescriptionHelpFormatter,description='''Cruise Control Simulator
 
 Any argument not provided will be overriden by the default simulation''')
-parser.add_argument('--road', help='the road file',default="bumpy.road")
-parser.add_argument('--car', help='the car file',default="CorvetteC5.car")
-parser.add_argument('--sim', help='the simulation file',default="bumpy.sim")
+parser.add_argument('--road', help='the road file',default="road/bumpy.road")
+parser.add_argument('--car', help='the car file',default="car/CorvetteC5.car")
+parser.add_argument('--sim', help='the simulation file',default="sim/bumpy.sim")
 parser.add_argument('--cc', help='the cruise control application')
 parser.add_argument('--gui',dest="gui",help='show simulation GUI (needs pyglet installed)',action='store_true',default=pyglet_exists)
 parser.add_argument('--no-gui',dest="gui",help='do not show simulation GUI (CLI mode)',action='store_false')
