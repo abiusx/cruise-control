@@ -100,7 +100,7 @@ try:
 			return [self.text("+/- 	 = Simulation Speed\nUp/Dwn = Gas\nW/S 	 = Brake\nSpace	 = Pause\nRight	 = Next Step\nC 	 = Cruise Control"
 				,font_name="Courier New",anchor_x='left',anchor_y='top',x=5,y=self.height,align='left',width=250,font_size=10,multiline=True)
 			,
-			self.text("Sim  %s\nRoad %s\nCar  %s\nCC   %s" % (args.sim,args.road,args.car,args.cc)
+			self.text("Sim  %s\nRoad %s\nCar  %s\nCC   %s" % (self.server.file,self.server.road_file,self.server.auto_file,self.server.cc_file)
 				,font_name="Courier New",anchor_x='left',anchor_y='top',x=5,y=self.height-150,align='left',width=450,font_size=10,multiline=True)]
 		def on_draw(self):
 			self.clear()
@@ -158,6 +158,7 @@ class JSONLoader(object):
 		data=open(file,"r").read()
 		data=json.loads(data);
 		data.update(kwargs)
+		data["file"]=file;
 		return cls(**data);
 	def save(self,file):
 		dict=self.__dict__
@@ -200,11 +201,25 @@ class CruiseControlAutomobile(Automobile):
 
 
 class Simulator(JSONLoader):
-	road=Road
-	auto=Automobile
-	def __init__(self,road, auto,tick_per_second,simulation_speed= 	1.0	,max_score 	=	1000.0,**kwargs):
-		self.auto=auto;
-		self.road=road;
+	def __init__(self,tick_per_second,simulation_speed= 	1.0	,max_score 	=	1000.0,**kwargs):
+		for key, value in kwargs.items():
+			setattr(self, key, value)
+		if self.auto_override is not None:
+			self.auto_file=self.auto_override
+		else:
+			self.auto_file= "car/"+ (self.car if self.car!="#" else self.file[4:-4]) +".car"
+		if self.road_override is not None:
+			self.road_file = self.road_override
+		else:
+			self.road_file = "road/"+ (self.road if self.road!="#" else self.file[4:-4]) +".road"
+
+		self.cc_file = self.cc
+		if self.cc is not None:
+			self.cc=AsyncProcess(self.cc_file);
+
+		self.auto=CruiseControlAutomobile.load(self.auto_file);
+		self.road=Road.load(self.road_file);
+
 		self.tick_per_second=tick_per_second;
 		self.simulation_speed=simulation_speed
 		self.max_score=max_score
@@ -214,8 +229,6 @@ class Simulator(JSONLoader):
 		self.score=self.max_score
 		self.finished=False
 		self.events_taken={}
-		for key, value in kwargs.items():
-			setattr(self, key, value)
 
 	'''
 	Simple emulated automatic transmission module
@@ -329,7 +342,7 @@ class Simulator(JSONLoader):
 					auto.cruise_control_enabled = False
 				commands.append(command);
 
-		if hasattr(self,"cc"): #cruise control app available and running
+		if self.cc is not None: #cruise control app available and running
 			status=self.cc.send("Tick %d;Speed %.4f;Gas %.2f;Brake %.2f;Gear %d;RPM %.0f;Slope %.2f"% 
 						(self.ticks,auto.v,auto.gas,auto.brake,auto.active_gear,auto.rpm,road.theta*180/math.pi))
 			if status is False:
@@ -346,7 +359,7 @@ class Simulator(JSONLoader):
 	def cruise_control_query(self):
 		auto=self.auto
 		road=self.road
-		if hasattr(self,"cc"): #cruise control app available and running
+		if self.cc is not None: #cruise control app available and running
 			gas=auto.gas;
 			brake=auto.brake;
 			while True:
@@ -438,9 +451,9 @@ import argparse
 parser = argparse.ArgumentParser(prog="CCSIM",formatter_class=argparse.RawDescriptionHelpFormatter,description='''Cruise Control Simulator
 
 Any argument not provided will be overriden by the default simulation''')
-parser.add_argument('--road', help='the road file',default="road/bumpy.road")
-parser.add_argument('--car', help='the car file',default="car/CorvetteC5.car")
 parser.add_argument('--sim', help='the simulation file',default="sim/bumpy.sim")
+parser.add_argument('--road', help='override the road in simulation with this file',default=None)
+parser.add_argument('--car', help='override the car in simulation with this file',default=None)
 parser.add_argument('--cc', help='the cruise control application')
 parser.add_argument('--gui',dest="gui",help='show simulation GUI (needs pyglet installed)',action='store_true',default=pyglet_exists)
 parser.add_argument('--no-gui',dest="gui",help='do not show simulation GUI (CLI mode)',action='store_false')
@@ -449,6 +462,7 @@ parser.add_argument('--key-tick', type=int,help='which tick to show report on (C
 parser.add_argument('--quiet',help='don''t output anything except the final score (CLI only)',action='store_true',default=False)
 parser.add_argument('--echo',help='echo the responses of Cruise Control application',action='store_true',default=False)
 args = parser.parse_args()
+print args;
 if not pyglet_exists:
 	if not args.quiet:
 		print "Needs pyglet to run in GUI mode."
@@ -457,11 +471,7 @@ if not pyglet_exists:
 
 
 
-road 		=	Road.load(args.road)
-automobile 	=	CruiseControlAutomobile.load(args.car);
-simulator 	=	Simulator.load(args.sim,road=road,auto=automobile);
-if args.cc:
-	simulator.cc=AsyncProcess(args.cc);
+simulator 	=	Simulator.load(args.sim,road_override=args.road,auto_override=args.car,cc=args.cc);
 # automobile.set_speed=automobile.v=120.0*1000/3600
 simulator.run();
 

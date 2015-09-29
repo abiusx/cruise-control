@@ -2,6 +2,8 @@
 "ticks": 0,
 "accumulated_time": 0.0,
 "time": 0.0,
+"road":"#",
+"car":"CorvetteC5",
 "simulation_speed": 2.0,
 "max_score": 400.0,
 "events": {"0":"SET","200.0":"RES","200.1":"RES","200.2":"RES","200.3":"RES","200.4":"RES","200.5":"RES","200.6":"RES","200.7":"RES","200.8":"RES","200.9":"RES","201.0":"RES","201.1":"RES","201.2":"RES","201.3":"RES","201.4":"RES","201.5":"RES","201.6":"RES","201.7":"RES","201.8":"RES",
