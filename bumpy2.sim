@@ -1,0 +1,8 @@
+{"tick_per_second": 10,
+"ticks": 0,
+"accumulated_time": 0.0,
+"time": 0.0,
+"simulation_speed": 2.0,
+"max_score": 2500.0,
+"events": {"0":"SET","100":"SET","100.1":"SET","100.2":"SET","240":"OFF","310":"RES","320":"RES","330":"RES"}
+}

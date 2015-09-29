@@ -1,0 +1,8 @@
+{"tick_per_second": 10,
+"ticks": 0,
+"accumulated_time": 0.0,
+"time": 0.0,
+"simulation_speed": 2.0,
+"max_score": 1000.0,
+"events": {"0":"SET","10":"RES","10.1":"RES","10.2":"RES","10.3":"RES","10.4":"RES","10.5":"RES","400":"RES","400.01":"RES","400.02":"RES","400.03":"RES","400.04":"RES","400.05":"RES"}
+}

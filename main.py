@@ -3,6 +3,7 @@
 import json,sys,time,math
 from collections import OrderedDict
 
+import subprocess
 try:
 	import pyglet
 	pyglet_exists = True
@@ -96,7 +97,7 @@ try:
 			self.batch.add(1,pyglet.gl.GL_POINTS,None,("v2f",(float(x),float(y))),("c3B",color)	)
 
 		def legend(self):
-			return self.text("+/- 	 = Simulation Speed\nUp/Dwn = Gas\nW/S 	 = Brake\nSpace	 = Pause\nRight	 = Next Step\nC 	 = Cruise Control"
+			return self.text("+/- 	 = Simulation Speed\nUp/Dwn = Gas\nW/S 	 = Brake\nSpace	 = Pause\nRight	 = Next Step\nC 	 = Cruise Control\n\nSim:  %s\nRoad: %s\nCar:  %s\nCC:   %s" % (args.sim,args.road,args.car,args.cc)
 				,font_name="Courier New",anchor_x='left',anchor_y='top',x=5,y=self.height,align='left',width=250,font_size=10,multiline=True)
 
 		def on_draw(self):
@@ -119,6 +120,35 @@ except ImportError:
 	pyglet_exists = False
 
 
+import Queue
+import threading
+class AsyncProcess:
+	def send(self,message,eol=True):
+		try:
+			self._p.stdin.write(message+ "\n" if eol else "");
+			self._p.stdin.flush()
+			return True
+		except IOError:
+			return False
+	def __init__(self, process):
+		self._p=subprocess.Popen([process],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
+		stream=self._p.stdout;
+		self._s = stream
+		self._q = Queue.Queue()
+		def _populateQueue(stream, queue):
+			while True:
+				line = stream.readline()
+				if line:
+					queue.put(line)
+		self._t = threading.Thread(target = _populateQueue,args = (self._s, self._q))
+		self._t.daemon = True
+		self._t.start() 
+	def receive(self, timeout = None):
+		try:
+			return self._q.get(block = timeout is not None,timeout = timeout)
+		except Queue.Empty:
+			return None
+
 class JSONLoader(object):
 	@classmethod
 	def load(cls,file,**kwargs):
@@ -137,7 +167,7 @@ class JSONLoader(object):
 
 
 class Road(JSONLoader):
-	def __init__(self,path,path_block_length,C_drag,C_rolling_resistence,C_friction,g=9.8,theta=0.0,block_index=0,**kwargs):
+	def __init__(self,path,path_block_length,C_drag,C_rolling_resistance,C_friction,g=9.8,theta=0.0,block_index=0,**kwargs):
 		kwargs=locals()
 		for key, value in kwargs.items():
 			setattr(self, key, value)
@@ -163,7 +193,7 @@ class CruiseControlAutomobile(Automobile):
 		self.cruise_control_enabled=cruise_control_enabled
 		self.set_speed=set_speed;
 		self.v=set_speed			#start off with the CC speed, or a lot of penalty will be incurred
-        
+		
 
 
 class Simulator(JSONLoader):
@@ -180,6 +210,9 @@ class Simulator(JSONLoader):
 		self.ticks=0
 		self.score=self.max_score
 		self.finished=False
+		self.events_taken={}
+		for key, value in kwargs.items():
+			setattr(self, key, value)
 
 	'''
 	Simple emulated automatic transmission module
@@ -213,7 +246,7 @@ class Simulator(JSONLoader):
 		road=self.road
 
 		#cruise control feedback
-		self.cruise_control();
+		self.cruise_control_query();
 
 		#validation
 		if (auto.gas > 100): 	auto.gas = 100;
@@ -243,8 +276,8 @@ class Simulator(JSONLoader):
 
 		#force calculation	
 		auto.F_traction =	drive_torque / auto.wheel_radius								#motor force
-		auto.F_drag		=	road.C_drag * auto.v * auto.v 									#air resistence
-		auto.F_road		=	road.C_rolling_resistence * auto.v									#road resistence
+		auto.F_drag		=	road.C_drag * auto.v * auto.v 									#air resistance
+		auto.F_road		=	road.C_rolling_resistance * auto.v									#road resistance
 		auto.F_brake 	= 	auto.brake / 100.0 * road.C_friction * road.g * auto.mass	#brake force
 		auto.F_slope 	= 	math.sin(road.theta) * road.g * auto.mass
 		auto.F_total	= 	auto.F_traction	- auto.F_drag - auto.F_road - auto.F_brake - auto.F_slope
@@ -260,39 +293,80 @@ class Simulator(JSONLoader):
 		#automatic transmission
 		self.automatic_transmission(throttle)
 
+		#cruise control update (send info to CC)
+		self.cruise_control_update();
+
 		#score calculation
 		if (auto.cruise_control_enabled):
 			self.score-= (auto.set_speed-auto.v)**2;
 			if (self.score<0): self.score=0;
 		return True;
 
-	def cruise_control(self):
-		'''
-		basic stupid implementation of cruise control
-		only works fine with high ticks
-		'''
+	def cruise_control_update(self):
 		auto=self.auto
-		if not auto.cruise_control_enabled: return False;
-		desired_speed=auto.set_speed
-		if (desired_speed<auto.v):
-			if auto.brake<5:
-				auto.brake=5;
-			else:
-				auto.brake*=2;
-			# auto.brake+=25;
-			auto.gas=0
-		elif (desired_speed>auto.v):
-			auto.brake=0;
-			if auto.gas<5:
-				auto.gas=5;
-			else:
-				auto.gas*=2
-			# auto.gas+=25;
-		else:
-			auto.brake=0;
-			auto.gas=5
-		pass;
+		road=self.road
+		commands=[]
+		for key in self.events:
+			if auto.x>float(key) and key not in self.events_taken:
+				command=self.events[key]
+				self.events_taken[key]=command
+				if command not in ["SET","RES","OFF"]: continue
+				if command=="SET":
+					if auto.cruise_control_enabled is False:
+						auto.set_speed=auto.v
+						auto.cruise_control_enabled=True
+					else:
+						auto.set_speed-= 1/3600.0 * 1000.0 # 1 km/h
+				elif command=="RES":
+					if auto.cruise_control_enabled is False:
+						auto.cruise_control_enabled = True
+					else:
+						auto.set_speed+= 1/3600.0 * 1000.0 # 1 km/h
+				else: 
+					auto.cruise_control_enabled = False
+				commands.append(command);
 
+		if hasattr(self,"cc"): #cruise control app available and running
+			status=self.cc.send("Tick %d;Speed %.4f;Gas %.2f;Brake %.2f;Gear %d;RPM %.0f;Slope %.2f"% 
+						(self.ticks,auto.v,auto.gas,auto.brake,auto.active_gear,auto.rpm,road.theta*180/math.pi))
+			if status is False:
+				print "Failure: Cruise Control application prematurely terminated."
+				err=self.cc.receive()
+				if err is not None:
+					print "Error: ",err
+				self.score=0
+				self.end()
+			for command in commands:
+				self.cc.send("Command "+command)
+
+
+	def cruise_control_query(self):
+		auto=self.auto
+		road=self.road
+		if hasattr(self,"cc"): #cruise control app available and running
+			gas=auto.gas;
+			brake=auto.brake;
+			while True:
+				msg=self.cc.receive();
+				if msg is None: break
+				if len(msg)>5 and msg[0:5]=="Gas: ":
+					gas=float(msg[5:]);
+				if len(msg)>7 and msg[0:7]=="Brake: ":
+					brake=float(msg[7:]);
+				if args.echo:
+					print self.ticks,"[Cruise Control]",msg.replace("\n","");
+			if auto.cruise_control_enabled: #do not allow CC app to update when off
+				auto.gas=gas
+				auto.brake=brake
+		else:
+			if auto.cruise_control_enabled:
+				desired_speed=auto.set_speed
+				if desired_speed<auto.v:
+					auto.brake+=25;
+					auto.gas=0
+				elif desired_speed>auto.v:
+					auto.brake=0;
+					auto.gas+=25;
 
 	def labels(self):
 		auto=self.auto
@@ -352,8 +426,7 @@ class Simulator(JSONLoader):
 					if not args.quiet:
 						sys.stdout.write('.')
 						sys.stdout.flush()
-				if not args.quiet:
-					time.sleep(1/1000.0*args.delay)
+				time.sleep(1/1000.0*args.delay)
 			if not args.quiet:
 				print "\n","-"*30,"done","-"*30
 
@@ -362,15 +435,16 @@ import argparse
 parser = argparse.ArgumentParser(prog="CCSIM",formatter_class=argparse.RawDescriptionHelpFormatter,description='''Cruise Control Simulator
 
 Any argument not provided will be overriden by the default simulation''')
-parser.add_argument('--road', nargs=1,help='the road file',default="bumpy.road")
-parser.add_argument('--car', nargs=1,help='the car file',default="CorvetteC5.car")
-parser.add_argument('--sim', nargs=1,help='the simulation file',default="test.sim")
-parser.add_argument('--cc', nargs=1,help='the cruise control application')
+parser.add_argument('--road', help='the road file',default="uphill.road")
+parser.add_argument('--car', help='the car file',default="CorvetteC5.car")
+parser.add_argument('--sim', help='the simulation file',default="uphill.sim")
+parser.add_argument('--cc', help='the cruise control application')
 parser.add_argument('--gui',dest="gui",help='show simulation GUI (needs pyglet installed)',action='store_true',default=pyglet_exists)
 parser.add_argument('--no-gui',dest="gui",help='do not show simulation GUI (CLI mode)',action='store_false')
-parser.add_argument('--delay', nargs=1,type=int,help='delay between ticks in miliseconds (CLI only)',default=10)
-parser.add_argument('--key-tick', nargs=1,type=int,help='which tick to show report on (CLI only)',default=100)
+parser.add_argument('--delay', type=int,help='delay between ticks in miliseconds (CLI only)',default=20)
+parser.add_argument('--key-tick', type=int,help='which tick to show report on (CLI only)',default=100)
 parser.add_argument('--quiet',help='don''t output anything except the final score (CLI only)',action='store_true',default=False)
+parser.add_argument('--echo',help='echo the responses of Cruise Control application',action='store_true',default=False)
 args = parser.parse_args()
 if not pyglet_exists:
 	if not args.quiet:
@@ -378,9 +452,13 @@ if not pyglet_exists:
 	if args.gui:
 		exit(1)
 
+
+
 road 		=	Road.load(args.road)
 automobile 	=	CruiseControlAutomobile.load(args.car);
 simulator 	=	Simulator.load(args.sim,road=road,auto=automobile);
+if args.cc:
+	simulator.cc=AsyncProcess(args.cc);
 # automobile.set_speed=automobile.v=120.0*1000/3600
 simulator.run();
 

@@ -4,7 +4,7 @@
 "F_traction": 0.0,
 "rpm": 0.0,
 "active_gear": 1,
-"cruise_control_enabled": true,
+"cruise_control_enabled": false,
 "min_rpm": 1000.0,
 "gears": [0,
 2.66,

@@ -1,5 +1,5 @@
 {"C_drag": 0.4257,
-"C_rolling_resistence": 12.8,
+"C_rolling_resistance": 12.8,
 "g": 9.8,
 "C_friction": 0.7,
 "block_index": 0,
