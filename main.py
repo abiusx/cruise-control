@@ -3,7 +3,6 @@
 import json,sys,time,math
 from collections import OrderedDict
 
-import subprocess
 try:
 	import pyglet
 	pyglet_exists = True
@@ -123,8 +122,7 @@ except ImportError:
 	pyglet_exists = False
 
 
-import Queue
-import threading
+import Queue,threading,subprocess,os
 class AsyncProcess:
 	def send(self,message,eol=True):
 		try:
@@ -134,7 +132,10 @@ class AsyncProcess:
 		except IOError:
 			return False
 	def __init__(self, process):
-		self._p=subprocess.Popen([process],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
+		if os.name=="nt":
+			self._p=subprocess.Popen(process,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+		else:
+			self._p=subprocess.Popen([process],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
 		stream=self._p.stdout;
 		self._s = stream
 		self._q = Queue.Queue()
@@ -462,7 +463,7 @@ parser.add_argument('--key-tick', type=int,help='which tick to show report on (C
 parser.add_argument('--quiet',help='don''t output anything except the final score (CLI only)',action='store_true',default=False)
 parser.add_argument('--echo',help='echo the responses of Cruise Control application',action='store_true',default=False)
 args = parser.parse_args()
-print args;
+
 if not pyglet_exists:
 	if not args.quiet:
 		print "Needs pyglet to run in GUI mode."
